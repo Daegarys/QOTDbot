@@ -42,9 +42,11 @@ QOTDbot is a Discord bot designed to ask a "Question of the Day" (QOTD) in a spe
 - `TEST_SERVER`: ID of the test server.
 - `SERVER_ID`: ID of the main server.
 - `MONGO_URI`: MongoDB connection string.
+- `OPENAI_API_KEY`: OpenAI API key for AI-generated fallback QOTDs.
 - `LOG_CHANNEL_ID`: ID of the log channel.
 - `QOTD_CHANNEL_ID`: ID of the QOTD channel.
 - `QOTD_ROLE_ID`: ID of the QOTD role.
+- `QOTD_HISTORY_LIMIT`: Number of previously asked questions to send for AI context (defaults to `25` if missing/invalid).
 - `BOT_ID`: ID of the bot.
 - `CRON`: Cron expression for scheduling the QOTD.
 

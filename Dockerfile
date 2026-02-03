@@ -1,4 +1,4 @@
-FROM node:latest AS qotd
+FROM node:18-bullseye-slim AS qotd
 
 # Create the bot's directory
 RUN mkdir -p /usr/src/bot
