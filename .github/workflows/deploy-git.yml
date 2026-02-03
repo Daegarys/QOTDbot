@@ -27,9 +27,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute image tag
+        run: echo "IMAGE_TAG=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/qotdbot:latest" >> "$GITHUB_ENV"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
           context: .
           push: true
-          tags: ghcr.io/deagarys/qotdbot:latest
+          tags: ${{ env.IMAGE_TAG }}
