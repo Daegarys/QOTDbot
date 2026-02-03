@@ -6,6 +6,11 @@ const openai = new OpenAI({
 	apiKey: process.env.OPENAI_API_KEY
 });
 
+function getOpenAiModel() {
+	const model = process.env.OPENAI_MODEL?.trim();
+	return model ? model : "gpt-5-mini";
+}
+
 function getQotdHistoryLimit() {
 	const parsedLimit = Number.parseInt(
 		process.env.QOTD_HISTORY_LIMIT ?? "",
@@ -14,7 +19,7 @@ function getQotdHistoryLimit() {
 	return Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 25;
 }
 
-async function generateQotd(previousQuestions = []) {
+async function generateQotd(previousQuestions = [], model) {
 	const previousQuestionsPrompt =
 		previousQuestions.length === 0
 			? "No previous questions are available."
@@ -23,7 +28,7 @@ async function generateQotd(previousQuestions = []) {
 					.join("\n");
 
 	const completion = await openai.chat.completions.create({
-		model: "gpt-5-mini",
+		model,
 		messages: [
 			{
 				role: "system",
@@ -74,7 +79,12 @@ module.exports = {
 				const historyLimit = getQotdHistoryLimit();
 				const previousQuestions =
 					await getPreviouslyAskedQuestions(historyLimit);
-				const generatedQuestion = await generateQotd(previousQuestions);
+				const model = getOpenAiModel();
+				console.log(`🤖 - OpenAI model in use: ${model}`);
+				const generatedQuestion = await generateQotd(
+					previousQuestions,
+					model
+				);
 				const embed = qotdEmbed(generatedQuestion, null);
 				const message = await client.channels.cache
 					.get(process.env.QOTD_CHANNEL_ID)
