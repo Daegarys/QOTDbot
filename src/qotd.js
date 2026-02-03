@@ -27,23 +27,41 @@ async function generateQotd(previousQuestions = [], model) {
 					.map((question, index) => `${index + 1}. ${question}`)
 					.join("\n");
 
-	const completion = await openai.chat.completions.create({
+	const response = await openai.responses.create({
 		model,
-		messages: [
-			{
-				role: "system",
-				content:
-					"You are a creative assistant that generates engaging 'Question of the Day' prompts for a Discord community. Generate fun, thought-provoking, and conversation-starting questions that are appropriate for all ages. Only respond with the question itself, no additional text. Avoid repeating or being too similar to previously asked questions. (The server mainly targets people around 18-27, most people are games and or anime fans.)"
-			},
-			{
-				role: "user",
-				content: `Generate a unique and interesting Question of the Day.\n\nPreviously asked questions:\n${previousQuestionsPrompt}`
-			}
-		],
-		max_tokens: 150
+		reasoning: {
+			effort: "minimal"
+		},
+		text: {
+			verbosity: "low"
+		},
+		instructions:
+			"You are a creative assistant that generates engaging 'Question of the Day' prompts for a Discord community. Generate fun, thought-provoking, and conversation-starting questions that are appropriate for all ages. Only respond with the question itself, no additional text. Avoid repeating or being too similar to previously asked questions. (The server mainly targets people around 18-27, most people are games and or anime fans.)",
+		input: `Generate a unique and interesting Question of the Day.\n\nPreviously asked questions:\n${previousQuestionsPrompt}`,
+		max_output_tokens: 300
 	});
 
-	return completion.choices[0].message.content.trim();
+	const structuredText = Array.isArray(response?.output)
+		? response.output
+				.flatMap((item) => item?.content ?? [])
+				.filter((item) => item?.type === "output_text")
+				.map((item) => item?.text ?? "")
+				.join("\n")
+		: "";
+	const questionText = String(response?.output_text ?? structuredText).trim();
+
+	if (!questionText) {
+		const status = response?.status ?? "unknown";
+		const incomplete = JSON.stringify(response?.incomplete_details ?? null);
+		const outputTypes = Array.isArray(response?.output)
+			? response.output.map((item) => item?.type).join(", ")
+			: "none";
+		throw new Error(
+			`OpenAI returned an empty QOTD response. status=${status} incomplete=${incomplete} output_types=${outputTypes}`
+		);
+	}
+
+	return questionText;
 }
 
 async function getPreviouslyAskedQuestions(limit = 25) {
@@ -85,6 +103,9 @@ module.exports = {
 					previousQuestions,
 					model
 				);
+				console.log(
+					`🤖 - Generated QOTD length: ${generatedQuestion.length}`
+				);
 				const embed = qotdEmbed(generatedQuestion, null);
 				const message = await client.channels.cache
 					.get(process.env.QOTD_CHANNEL_ID)
@@ -102,13 +123,20 @@ module.exports = {
 				});
 
 				console.log("✅ - AI-generated QOTD sent successfully");
+				return true;
 			} catch (error) {
-				console.error(
-					"❌ - Failed to generate QOTD with OpenAI:",
-					error
-				);
+				console.error("❌ - Failed to generate QOTD with OpenAI:", {
+					message: error?.message,
+					type: error?.type,
+					code: error?.code,
+					param: error?.param,
+					requestID: error?.requestID,
+					details: Array.isArray(error?.errors)
+						? error.errors.map((item) => item?.message ?? String(item))
+						: undefined
+				});
+				return false;
 			}
-			return;
 		}
 
 		const embed = qotdEmbed(question.question, question.imageUrl);
@@ -121,14 +149,20 @@ module.exports = {
 		await question.save();
 
 		console.log("🔹  - qotdJob ran");
+		return true;
 	}
 };
 
 function qotdEmbed(question, imageUrl) {
-	return new EmbedBuilder()
+	const embed = new EmbedBuilder()
 		.setColor(0x0099ff)
 		.setTitle("Question of the day!")
-		.setImage(imageUrl)
 		.setDescription(question)
 		.setTimestamp();
+
+	if (imageUrl) {
+		embed.setImage(imageUrl);
+	}
+
+	return embed;
 }
