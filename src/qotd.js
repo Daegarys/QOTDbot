@@ -2,9 +2,21 @@
 const { EmbedBuilder } = require("discord.js");
 const OpenAI = require("openai");
 
-const openai = new OpenAI({
-	apiKey: process.env.OPENAI_API_KEY
-});
+let openaiClient = null;
+
+function getOpenAiClient() {
+	if (openaiClient) {
+		return openaiClient;
+	}
+
+	const apiKey = process.env.OPENAI_API_KEY?.trim();
+	if (!apiKey) {
+		return null;
+	}
+
+	openaiClient = new OpenAI({ apiKey });
+	return openaiClient;
+}
 
 function getOpenAiModel() {
 	const model = process.env.OPENAI_MODEL?.trim();
@@ -20,6 +32,11 @@ function getQotdHistoryLimit() {
 }
 
 async function generateQotd(previousQuestions = [], model) {
+	const openai = getOpenAiClient();
+	if (!openai) {
+		throw new Error("OPENAI_API_KEY is not set.");
+	}
+
 	const previousQuestionsPrompt =
 		previousQuestions.length === 0
 			? "No previous questions are available."
@@ -94,6 +111,13 @@ module.exports = {
 		if (question === undefined || question === null) {
 			console.log("🤖 - No qotd in db, generating with OpenAI...");
 			try {
+				if (!process.env.OPENAI_API_KEY?.trim()) {
+					console.warn(
+						"⚠️ - OPENAI_API_KEY is missing; cannot generate fallback QOTD."
+					);
+					return false;
+				}
+
 				const historyLimit = getQotdHistoryLimit();
 				const previousQuestions =
 					await getPreviouslyAskedQuestions(historyLimit);
